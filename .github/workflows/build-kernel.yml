@@ -1,7 +1,7 @@
 name: Build Lenovo TB-8505X Kernel with RTL8188FU
 
 on:
-  workflow_dispatch: # Allows you to trigger the build manually with a button
+  workflow_dispatch:
 
 jobs:
   build:
@@ -20,8 +20,7 @@ jobs:
 
     - name: Clone Lenovo TB-8505X Kernel Source
       run: |
-        # Cloning the official MediaTek/Lenovo source for your specific tablet
-        git clone --depth=1 https://github.com/lenovo-opensource/android_kernel_lenovo_tb8505.git android_kernel
+        git clone --depth=1 https://github.com/theimpulson/android_kernel_lenovo_tb8505.git android_kernel
         
     - name: Inject RTL8188FU Driver Source
       run: |
@@ -31,17 +30,12 @@ jobs:
     - name: Patch Kconfig and Makefile
       run: |
         cd android_kernel
-        # Inject into Realtek Kconfig right before the final endif
         sed -i '/endif/i source "drivers/net/wireless/realtek/rtl8188fu/Kconfig"' drivers/net/wireless/realtek/Kconfig
-        
-        # Inject into Realtek Makefile
         echo "obj-\$(CONFIG_RTL8188FU) += rtl8188fu/" >> drivers/net/wireless/realtek/Makefile
 
     - name: Configure Kernel Flags (Defconfig)
       run: |
         cd android_kernel
-        # Appending our driver flag directly into the tablet's defconfig file
-        # We use standard mediatek architecture defconfig for this chip
         echo "CONFIG_RTL8188FU=y" >> arch/arm64/configs/tb8505_defconfig
 
     - name: Compile Kernel
@@ -57,4 +51,3 @@ jobs:
       with:
         name: Compiled-Kernel-Image
         path: android_kernel/arch/arm64/boot/Image.gz-dtb
-
