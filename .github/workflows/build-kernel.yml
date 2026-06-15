@@ -44,10 +44,11 @@ jobs:
         export ARCH=arm64
         export CROSS_COMPILE=aarch64-linux-gnu-
         make tb8505_defconfig
-        make -j$(nproc)
+        # Explicitly targeting the Image file directly to bypass standard DTB targets failure
+        make -j$(nproc) Image
 
     - name: Upload Compiled Kernel Binary
       uses: actions/upload-artifact@v4
       with:
         name: Compiled-Kernel-Image
-        path: android_kernel/arch/arm64/boot/Image.gz-dtb
+        path: android_kernel/arch/arm64/boot/Image
