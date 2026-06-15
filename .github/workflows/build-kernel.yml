@@ -16,7 +16,7 @@ jobs:
         sudo apt update
         sudo apt install -y build-essential libncurses5-dev gawk flex bison openssl \
         libssl-dev dkms libelf-dev libudev-dev libpci-dev libiberty-dev autoconf \
-        llvm clang lld git bc ccache u-boot-tools crossbuild-essential-arm64
+        llvm clang lld git bc ccache u-boot-tools crossbuild-essential-arm64 crossbuild-essential-armhf
 
     - name: Clone Lenovo TB-8505X Kernel Source
       run: |
@@ -33,6 +33,18 @@ jobs:
         sed -i '/endif/i source "drivers/net/wireless/realtek/rtl8188fu/Kconfig"' drivers/net/wireless/realtek/Kconfig
         echo "obj-\$(CONFIG_RTL8188FU) += rtl8188fu/" >> drivers/net/wireless/realtek/Makefile
 
+    - name: Fix Host Compiler GCC Compatibility (yylloc Error)
+      run: |
+        cd android_kernel
+        # Force host compiler to allow duplicate definitions common in older codebases
+        sed -i 's/^HOSTCFLAGS   :=/HOSTCFLAGS   := -fcommon /g' Makefile || true
+        sed -i 's/^HOSTCFLAGS   =/HOSTCFLAGS   = -fcommon /g' Makefile || true
+        
+        # Directly patch the pre-generated lexer file if it exists to safely bypass duplication links
+        if [ -f scripts/dtc/dtc-lexer.lex.c_shipped ]; then
+          sed -i 's/YYLTYPE yylloc;/extern YYLTYPE yylloc;/g' scripts/dtc/dtc-lexer.lex.c_shipped
+        fi
+
     - name: Configure Kernel Flags (Defconfig)
       run: |
         cd android_kernel
@@ -43,9 +55,11 @@ jobs:
         cd android_kernel
         export ARCH=arm64
         export CROSS_COMPILE=aarch64-linux-gnu-
+        export CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+        
         make tb8505_defconfig
-        # Explicitly targeting the Image file directly to bypass standard DTB targets failure
-        make -j$(nproc) Image
+        # KCFLAGS="-w" turns off strict warnings to prevent modern GCC from dropping the compilation mid-way
+        make -j$(nproc) Image HOSTCFLAGS="-fcommon" KCFLAGS="-w"
 
     - name: Upload Compiled Kernel Binary
       uses: actions/upload-artifact@v4
